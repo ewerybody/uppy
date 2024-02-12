@@ -22,3 +22,7 @@ Cons:
    on the server and reveal files and hashes) (we could however obfuscate it at
    least a little.)
  * nothing concurrent yet (we could try downloading the manifest while scanning locally) (currently it all just took split seconds so there was no pressure yet)
+
+# hot to use
+
+`TBD`
