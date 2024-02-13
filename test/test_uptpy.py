@@ -1,12 +1,12 @@
 """
-Testing `uppy`. What to test:
+Testing `uptpy`. What to test:
 * delete files that are already deleted.
 * create folders in subfolders (making dir tree needs to work)
 * simple file change
 * add and delete files
 * delete directory tree
 * nothing-to-to
-* ignoring uppy-unknown remote files
+* ignoring uptpy-unknown remote files
 * special characters in file and dir names
 """
 
@@ -29,7 +29,7 @@ if __name__ == '__main__':
     parent_path = os.path.dirname(THIS_DIR)
     if parent_path not in sys.path:
         sys.path.append(parent_path)
-import uppy  # noqa: E402
+import uptpy  # noqa: E402
 
 
 class Test(unittest.TestCase):
@@ -56,27 +56,27 @@ class Test(unittest.TestCase):
 
     def test_manitest(self):
         # self.skipTest('')
-        ftp = uppy.get_ftp(*self._test_creds)[0]
-        current = uppy.load_manifest(ftp, self._rp)
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
+        current = uptpy.load_manifest(ftp, self._rp)
 
-        remote = uppy.scan_remote(ftp, self._rp)
+        remote = uptpy.scan_remote(ftp, self._rp)
         self.assertTrue(isinstance(remote, dict))
         self.assertTrue('' in remote)
         self.assertTrue('subdir' in remote)
         self.assertTrue('data.json' in remote[''])
         self.assertTrue('size' in remote['']['data.json'])
 
-        self._ensure_deleted(ftp, self._rp, uppy.REMOTE_MANIFEST)
-        self.assertEqual(uppy.load_manifest(ftp, self._rp), {})
+        self._ensure_deleted(ftp, self._rp, uptpy.REMOTE_MANIFEST)
+        self.assertEqual(uptpy.load_manifest(ftp, self._rp), {})
 
-        uppy.update_manifest(ftp, current, TEST_DIR, self._rp)
+        uptpy.update_manifest(ftp, current, TEST_DIR, self._rp)
         ftp.close()
 
     def test_delete(self):
         # self.skipTest('')
         name = 'delete.me'
         # prepare
-        ftp = uppy.get_ftp(*self._test_creds)[0]
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
         self._ensure_deleted(ftp, self._rp, name)
 
         new_file = os.path.join(TEST_DIR, name)
@@ -84,13 +84,13 @@ class Test(unittest.TestCase):
             fobj.write('1337')
 
         # sync
-        uppy.update(*self._test_connection)
+        uptpy.update(*self._test_connection)
         # delete remotely
         self._ensure_deleted(ftp, self._rp, name)
         # delete locally
         os.unlink(new_file)
         # re-sync (file is in manifest and should be tried to delete)
-        num_changes = uppy.update(*self._test_connection)
+        num_changes = uptpy.update(*self._test_connection)
         self.assertEqual(num_changes, 0)
 
         ftp.close()
@@ -119,9 +119,9 @@ class Test(unittest.TestCase):
             with open(subfile2, 'wb') as fobj:
                 fobj.write(b'\x00\x00\x00')
 
-        num_changes = uppy.update(*self._test_connection)
+        num_changes = uptpy.update(*self._test_connection)
 
-        ftp = uppy.get_ftp(*self._test_creds)[0]
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
         rthings = sorted(
             os.path.relpath(i, self._rp) for i in ftp.nlst(self._rp) if not i.endswith('.')
         )
@@ -139,15 +139,15 @@ class Test(unittest.TestCase):
         with open(data_json, 'w') as fobj:
             json.dump(local_data, fobj)
 
-        ftp = uppy.get_ftp(*self._test_creds)[0]
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
 
         def _get_remote_data():
-            content = uppy.read_remote(ftp, posixpath.join(self._rp, 'data.json'))
+            content = uptpy.read_remote(ftp, posixpath.join(self._rp, 'data.json'))
             return json.loads(content)
 
         remote_data1 = _get_remote_data()
 
-        result = uppy.update(*self._test_connection)
+        result = uptpy.update(*self._test_connection)
         self.assertEqual(result, 1)
 
         remote_data2 = _get_remote_data()
@@ -165,10 +165,10 @@ class Test(unittest.TestCase):
         file_path = os.path.join(TEST_DIR, rel_path)
         content = _make_file(file_path)
 
-        ftp = uppy.get_ftp(*self._test_creds)[0]
-        uppy.update(*self._test_connection, in_ftp=ftp)
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
+        uptpy.update(*self._test_connection, in_ftp=ftp)
 
-        remote_content = uppy.read_remote(ftp, posixpath.join(self._rp, rel_path))
+        remote_content = uptpy.read_remote(ftp, posixpath.join(self._rp, rel_path))
         self.assertEqual(remote_content, content)
 
     def test_ignored_remotely(self):
@@ -181,25 +181,25 @@ class Test(unittest.TestCase):
                 os.unlink(path)
             self.assertFalse(os.path.isfile(path))
 
-        ftp = uppy.get_ftp(*self._test_creds)[0]
-        uppy.update(*self._test_connection, in_ftp=ftp)
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
+        uptpy.update(*self._test_connection, in_ftp=ftp)
 
         content1 = _make_file(local_file1)
         content2 = _make_file(local_file2)
 
-        uppy._upload(ftp, rel_path1, TEST_DIR, self._rp)
-        uppy.mkdirs(ftp, self._rp, 'IGNORE_SUBDIR')
-        uppy._upload(ftp, rel_path2, TEST_DIR, self._rp)
+        uptpy._upload(ftp, rel_path1, TEST_DIR, self._rp)
+        uptpy.mkdirs(ftp, self._rp, 'IGNORE_SUBDIR')
+        uptpy._upload(ftp, rel_path2, TEST_DIR, self._rp)
 
         for path in local_file1, local_file2:
             os.unlink(path)
             self.assertFalse(os.path.isfile(path))
 
-        result = uppy.update(*self._test_connection, in_ftp=ftp)
+        result = uptpy.update(*self._test_connection, in_ftp=ftp)
         self.assertEqual(result, 0)
 
         for rel_path, content in ((rel_path1, content1), (rel_path2, content2)):
-            remote_content = uppy.read_remote(ftp, posixpath.join(self._rp, rel_path))
+            remote_content = uptpy.read_remote(ftp, posixpath.join(self._rp, rel_path))
             self.assertEqual(remote_content, content)
 
     def _ensure_deleted(self, ftp, remote_root, name):

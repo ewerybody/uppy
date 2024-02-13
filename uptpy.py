@@ -1,5 +1,5 @@
 """
-uppy - Python FTP uploader with minumum overhead and zero extra dependencies.
+uptpy - Python FTP uploader with minumum overhead and zero extra dependencies.
 
 I'd like a webspace updated as quickly & reliable as possible! How to do that?
 We need to know what needs to be updated instead of just pushing all without
@@ -11,13 +11,13 @@ Afterwards we update the remote manifest.
 Pros:
  * checks are done super quickly
  * actual update uploads are as compact as possible
- * deletions are handled as well (Of files once uploaded via uppy)
+ * deletions are handled as well (Of files once uploaded via uptpy)
  * any other remote dirs and files are ignored by default
 
 Cons:
  * initially ALL files need to be uploaded (we "could" instead download first
    and update if necessary. TBD)
- * If a file is removed remotely uppy wouldn't notice. (We could do a post-
+ * If a file is removed remotely uptpy wouldn't notice. (We could do a post-
    check to fix any missing files. TBD)
  * we need to have this remote manifest file (which could potentially be found
    on the server and reveal files and hashes) (we could however obfuscate it at
@@ -34,17 +34,17 @@ import logging
 import posixpath
 
 logging.basicConfig()
-log = logging.getLogger('uppy')
+log = logging.getLogger('uptpy')
 log.setLevel(logging.DEBUG)
 
 __version__ = '1.0.0'
 __version_info__ = (1, 0, 0)
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
-REMOTE_MANIFEST = '_uppy.json'
+REMOTE_MANIFEST = '_uptpy.json'
 IGNORE_DOT_NAMES = True
-# If this is set True uppy will perform an initial remote scan! Anything that's
+# If this is set True uptpy will perform an initial remote scan! Anything that's
 # not also in the local path will then be deleted!! Use only if you want to
-# match local and remote 1 to 1! Otherwise uppy will ONLY care about the local
+# match local and remote 1 to 1! Otherwise uptpy will ONLY care about the local
 # path files and ignore anything that's also on the server.
 SCAN_REMOTE = False
 MSG_DELE = '250 DELE command successful'
