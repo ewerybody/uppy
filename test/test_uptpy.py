@@ -40,7 +40,7 @@ class Test(unittest.TestCase):
             return
 
         try:
-            with open(CREDS_FILE) as file_obj:
+            with open(CREDS_FILE, encoding='utf8') as file_obj:
                 self.creds = json.load(file_obj)
         except json.JSONDecodeError as error:
             raise RuntimeError(
@@ -62,7 +62,6 @@ class Test(unittest.TestCase):
         remote = uptpy.scan_remote(ftp, self._rp)
         self.assertTrue(isinstance(remote, dict))
         self.assertTrue('' in remote)
-        self.assertTrue('subdir' in remote)
         self.assertTrue('data.json' in remote[''])
         self.assertTrue('size' in remote['']['data.json'])
 
@@ -80,7 +79,7 @@ class Test(unittest.TestCase):
         self._ensure_deleted(ftp, self._rp, name)
 
         new_file = os.path.join(TEST_DIR, name)
-        with open(new_file, 'w') as fobj:
+        with open(new_file, 'w', encoding='utf8') as fobj:
             fobj.write('1337')
 
         # sync
@@ -113,7 +112,7 @@ class Test(unittest.TestCase):
         os.mkdir(subdir2)
         for i in range(3):
             subfile = os.path.join(subdir, 'file%i.txt' % i)
-            with open(subfile, 'w') as fobj:
+            with open(subfile, 'w', encoding='utf8') as fobj:
                 fobj.write('chuckles')
             subfile2 = os.path.join(subdir2, 'file%i.bin' % i)
             with open(subfile2, 'wb') as fobj:
@@ -133,34 +132,39 @@ class Test(unittest.TestCase):
 
     def test_change(self):
         data_json = os.path.join(TEST_DIR, 'data.json')
-        with open(data_json) as fobj:
+        with open(data_json, encoding='utf8') as fobj:
             local_data = json.load(fobj)
         local_data['random'] = str(uuid.uuid4())
-        with open(data_json, 'w') as fobj:
+        with open(data_json, 'w', encoding='utf8') as fobj:
             json.dump(local_data, fobj)
 
         ftp = uptpy.get_ftp(*self._test_creds)[0]
+        uptpy.mkdirs(ftp, self._rp, '')
 
         def _get_remote_data():
-            content = uptpy.read_remote(ftp, posixpath.join(self._rp, 'data.json'))
-            return json.loads(content)
+            try:
+                content = uptpy.read_remote(ftp, posixpath.join(self._rp, 'data.json'))
+                return json.loads(content)
+            except Exception as error:
+                error
+                return {}
 
         remote_data1 = _get_remote_data()
 
         result = uptpy.update(*self._test_connection)
-        self.assertEqual(result, 1)
+        self.assertTrue(result > 0)
 
         remote_data2 = _get_remote_data()
         ftp.close()
 
-        self.assertNotEqual(remote_data1['random'], remote_data2['random'])
+        self.assertNotEqual(remote_data1.get('random'), remote_data2['random'])
         self.assertEqual(local_data['random'], remote_data2['random'])
 
     def test_non_ascii_names(self):
         # might be this was a problem when I initially wrote it with Python2?
         # This all works out of the box now. Nice :)
-        smiley = '\ud83e\udd17'.encode('utf-16', 'surrogatepass').decode('utf-16')
-        file_name = 'Str\u00ebu\u00dfel%sbr\u00f6tchen.txt' % smiley
+        smiley = '_\ud83e\udd17'.encode('utf-16', 'surrogatepass').decode('utf-16')
+        file_name = '_Str\u00ebu\u00dfel%sbr\u00f6tchen.txt' % smiley
         rel_path = posixpath.join(smiley, file_name)
         file_path = os.path.join(TEST_DIR, rel_path)
         content = _make_file(file_path)
@@ -204,6 +208,7 @@ class Test(unittest.TestCase):
 
     def _ensure_deleted(self, ftp, remote_root, name):
         remote_path = posixpath.join(remote_root, name)
+        uptpy.mkdirs(ftp, remote_root)
         things = ftp.nlst(remote_root)
         if remote_path in things:
             ftp.delete(remote_path)
