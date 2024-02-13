@@ -301,12 +301,18 @@ def read_remote(ftp, path):
     return '\n'.join(lines)
 
 
-def mkdirs(ftp, root, path):
+def mkdirs(ftp, root, path=''):
     # type: (ftplib.FTP, str, str) -> None
-    parts = path.replace(os.path.sep, posixpath.sep).split(posixpath.sep)
+    if path:
+        path = path.replace(os.path.sep, posixpath.sep)
+        path = posixpath.join(root, path)
+    else:
+        path = root
+
+    parts = path.split(posixpath.sep)
     created = ''
     for i in range(1, len(parts) + 1):
-        this_dir = posixpath.join(root, *parts[:i])
+        this_dir = posixpath.join(*parts[:i])
         if this_dir in ftp.nlst(posixpath.dirname(this_dir)):
             continue
         ftp.mkd(this_dir)
