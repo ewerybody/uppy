@@ -20,7 +20,7 @@ Cons:
 * initially ALL files need to be uploaded (we "could" instead download first
   and update if necessary. TBD)
 * If a file is removed remotely `uptpy` wouldn't notice. (We could do a post-
-  check to fix any missing files. (TBD #2)
+  check to fix any missing files. (TBD [#2](https://github.com/ewerybody/uptpy/issues/2))
 * we need to have this remote manifest file (which could potentially be found
   on the server and reveal files and hashes) (we could however obfuscate it at
   least a little.)
