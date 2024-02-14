@@ -1,31 +1,39 @@
-# uptpy 🍰
+# **uptpy** - compact Python FTP uploader
 
-FTP uploader with minumum overhead and zero extra dependencies
+When building with static site generators I'd like to push and see the result asap!
+How to do that? Usually uploaders shove all files that end up in the `public` directory and have no idea what was already up-to-date and what was renamed and can be deleted now.
+To mitigate the deletion problem you might push to a new directory and switch the online one with the new in an instant. But that still has the Uploading-all problem.
 
-So I'd like a static built website updated as quickly & reliable as possible! How to do that?
-We need to know what actually has to be updated instead of just pushing all without
-checking. For that we'll download a manifest file containing filenames and hashes for each
-target directory. If such file is not yet present all the files are initially
-pushed. Then we always just check against a local manifest and sync anything off.
+So we need to know what actually has to be updated! For that we'll maintain a manifest file containing filenames and hashes for each
+target directory. If such file is not yet present all the files are initially pushed.
+Then we always just check against a local manifest and sync anything that's off.
 
 Pros:
-
+* one single .py file
+* no extra Python packages
 * checks are done super quickly
-* actual update uploads are as compact as possible
-* deletions are handled as well (Of files once uploaded via `uptpy`)
-* any other remote dirs and files are ignored by default
+* actual update uploads as compact as possible
+* deletions handled as well (of files once uploaded via `uptpy`)
+* any other remote dirs and files ignored by default
 
 Cons:
-
 * initially ALL files need to be uploaded (we "could" instead download first
   and update if necessary. TBD)
 * If a file is removed remotely `uptpy` wouldn't notice. (We could do a post-
-  check to fix any missing files. TBD)
+  check to fix any missing files. (TBD #2)
 * we need to have this remote manifest file (which could potentially be found
   on the server and reveal files and hashes) (we could however obfuscate it at
   least a little.)
 * nothing concurrent yet (we could try downloading the manifest while scanning locally) (currently it all just took split seconds so there was no pressure yet)
 
 # hot to use
-
 `TBD`
+## the fastest method
+
+* get a copy of `uptpy.py`
+* run it `python uptpy.py {HOSTURL} {USER} {PASSWD} {LOCAL_PATH} {REMOTE_PATH}`
+
+# history
+
+I built a HUGO site for friends and have them host the code on Github. They could make changes on the `.md` files, commit and Voilà: The page was updated ... soon ... ish.
+Initially I set up some Github Action that used a suggested FTP project. The action was building with HUGO, checking out the FTP project from github, have it compile itself somehow and use it to push the public contents. All in all this took **about 2 minutes**!! Having some XP with Python, FTP, manifest files and hashes I hacked together a first draft and wired it up in Github actions. Slashing down the update time to about 10 seconds!
