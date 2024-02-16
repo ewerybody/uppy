@@ -33,6 +33,31 @@ Cons:
 * get a copy of `uptpy.py`
 * run it `python uptpy.py {HOSTURL} {USER} {PASSWD} {LOCAL_PATH} {REMOTE_PATH}`
 
+For example with HUGO:
+```
+...
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Hugo setup
+        uses: peaceiris/actions-hugo@v2.6.0
+
+      - name: FTP Deploy
+        run: python uptpy.py example-url.com ${{ secrets.USER }} ${{ secrets.PASSW }} public remote_subdir
+```
+Of course that'd require:
+* `uptpy.py` to be in the root
+* `example-url.com` replaced with the host adress for the FTP
+* `secrets.USER` to point to the user name in your projects secrets
+* `secrets.PASSW` to point to the password to be used with this user
+* `public` would be the path to the output folder by HUGO
+* `remote_subdir` any folder on the FTP to put things under.
+
+
 # history
 
 I built a HUGO site for friends and have them host the code on Github. They could make changes on the `.md` files, commit and Voilà: The page was updated ... soon ... ish.
