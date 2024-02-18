@@ -1,4 +1,4 @@
 .*
 _*
 *.bak
-# test/local/
+test/local/
