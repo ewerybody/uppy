@@ -132,9 +132,12 @@ class Test(unittest.TestCase):
 
     def test_change(self):
         data_json = os.path.join(TEST_DIR, 'data.json')
-        with open(data_json, encoding='utf8') as fobj:
-            local_data = json.load(fobj)
-        local_data['random'] = str(uuid.uuid4())
+        if not os.path.isfile(data_json):
+            local_data = {'nothing': None}
+        else:
+            with open(data_json, encoding='utf8') as fobj:
+                local_data = json.load(fobj)
+        local_data['random'] = str(uuid.uuid4()) # type: ignore
         with open(data_json, 'w', encoding='utf8') as fobj:
             json.dump(local_data, fobj)
 
@@ -145,8 +148,7 @@ class Test(unittest.TestCase):
             try:
                 content = uptpy.read_remote(ftp, posixpath.join(self._rp, 'data.json'))
                 return json.loads(content)
-            except Exception as error:
-                error
+            except Exception:
                 return {}
 
         remote_data1 = _get_remote_data()
