@@ -37,17 +37,22 @@ logging.basicConfig()
 log = logging.getLogger('uptpy')
 log.setLevel(logging.DEBUG)
 
-__version__ = '1.0.0'
-__version_info__ = (1, 0, 0)
+__version__ = '1.1.0'
+__version_info__ = (1, 1, 0)
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 REMOTE_MANIFEST = '_uptpy.json'
 IGNORE_DOT_NAMES = True
+ENCODING = 'utf8'
+# ENCODING = 'latin-1'
+# ENCODING = 'cp437'
+
 # If this is set True uptpy will perform an initial remote scan! Anything that's
 # not also in the local path will then be deleted!! Use only if you want to
 # match local and remote 1 to 1! Otherwise uptpy will ONLY care about the local
 # path files and ignore anything that's also on the server.
 SCAN_REMOTE = False
 MSG_DELE = '250 DELE command successful'
+ERROR_UNICODE_REASON = 'invalid continuation byte'
 
 
 def update(host='', user='', passwd='', local_path='', remote_path='', in_ftp=None):
@@ -62,7 +67,7 @@ def update(host='', user='', passwd='', local_path='', remote_path='', in_ftp=No
     * file different locally: upload
     """
     start_time = time.time()
-    ftp, _ftp_created = get_ftp(host, user, passwd, in_ftp)
+    ftp, _ftp_created = get_ftp(host, user, passwd, ENCODING, in_ftp)
 
     remote_dirs = load_manifest(ftp, remote_path)
     if not remote_dirs:
@@ -180,7 +185,9 @@ def scan_remote(ftp, remote_path, ignores=None):
     # type: (ftplib.FTP, str, list[str] | None) -> dict[str, dict[str, dict[str, str|int]]]
     log.info('Scanning remote path: %s ...', remote_path)
     data = {}
+    t0 = time.time()
     _scan_remote(ftp, remote_path, '', data, ignores)
+    print('%s took %.3fs' % ('_scan_remote', time.time() - t0))
     return data
 
 
@@ -249,13 +256,14 @@ def _is_ignored(name, ignores):
     return False
 
 
-def get_ftp(host, user, passwd, in_ftp=None):
-    # type: (str, str, str, ftplib.FTP | None) -> tuple[ftplib.FTP, bool]
+def get_ftp(host, user, passwd, encoding=ENCODING, in_ftp=None):
+    # type: (str, str, str, str, ftplib.FTP | None) -> tuple[ftplib.FTP, bool]
     if in_ftp is not None:
         return in_ftp, False
+
     log.info('Connecting to "%s" ...', host)
     try:
-        ftp = ftplib.FTP(host)
+        ftp = ftplib.FTP(host, encoding=encoding)
     except Exception as error:
         raise Exception('Error creating connection to "%s"\n%s' % (host, error))
 
@@ -313,9 +321,19 @@ def mkdirs(ftp, root, path=''):
     created = ''
     for i in range(1, len(parts) + 1):
         this_dir = posixpath.join(*parts[:i])
-        if this_dir in ftp.nlst(posixpath.dirname(this_dir)):
-            continue
-        ftp.mkd(this_dir)
+
+        # try and skip error 550. It's not utterly specific:
+        #  "Requested action not taken. File unavailable (e.g., file not found, no access)."
+        #  see: https://en.wikipedia.org/wiki/List_of_FTP_server_return_codes
+        # but it can't be that the parent dir isn't there (we're looping the path) and
+        # without listing we cannot easily check for presence, It's also quicker than listing!
+        try:
+            ftp.mkd(this_dir)
+        except ftplib.error_perm as error:
+            if error.args[0].startswith('550'):
+                continue
+            raise error
+
         created = posixpath.join(*parts[:i])
 
     if created:
@@ -326,4 +344,4 @@ if __name__ == '__main__':
     import sys
 
     if sys.argv[1:]:
-        update(*sys.argv[1:4])
+        update(*sys.argv[1:6])
