@@ -17,12 +17,14 @@ import uuid
 import shutil
 import unittest
 import posixpath
+import subprocess
 
 THIS_DIR = os.path.abspath(os.path.dirname(__file__))
 TEST_DIR = os.path.join(THIS_DIR, 'local')
 CREDS_NAME = '_ test_creds.json'
 CREDS_FILE = os.path.join(THIS_DIR, CREDS_NAME)
 ERR_NEED_CREDS = 'Need credentials in file %s to perform tests!' % CREDS_FILE
+DATA_JSON = 'data.json'
 
 
 if __name__ == '__main__':
@@ -62,8 +64,8 @@ class Test(unittest.TestCase):
         remote = uptpy.scan_remote(ftp, self._rp)
         self.assertTrue(isinstance(remote, dict))
         self.assertTrue('' in remote)
-        self.assertTrue('data.json' in remote[''])
-        self.assertTrue('size' in remote['']['data.json'])
+        self.assertTrue(DATA_JSON in remote[''])
+        self.assertTrue('size' in remote[''][DATA_JSON])
 
         self._ensure_deleted(ftp, self._rp, uptpy.REMOTE_MANIFEST)
         self.assertEqual(uptpy.load_manifest(ftp, self._rp), {})
@@ -72,7 +74,7 @@ class Test(unittest.TestCase):
         ftp.close()
 
     def test_delete(self):
-        # self.skipTest('')
+        self.skipTest('')
         name = 'delete.me'
         # prepare
         ftp = uptpy.get_ftp(*self._test_creds)[0]
@@ -95,7 +97,7 @@ class Test(unittest.TestCase):
         ftp.close()
 
     def test_dirtree_add_create(self):
-        # self.skipTest('')
+        self.skipTest('')
         prefix = '_random_'
         # remove old random dir locally
         for item in os.scandir(TEST_DIR):
@@ -122,7 +124,9 @@ class Test(unittest.TestCase):
 
         ftp = uptpy.get_ftp(*self._test_creds)[0]
         rthings = sorted(
-            os.path.relpath(i, self._rp) for i in ftp.nlst(self._rp) if not i.endswith('.')
+            os.path.relpath(i, self._rp)
+            for i in ftp.nlst(self._rp)
+            if not i.endswith('.')
         )
         ftp.close()
         # lthings = sorted(i.name for i in os.scandir(TEST_DIR))
@@ -131,40 +135,46 @@ class Test(unittest.TestCase):
         self.assertNotEqual(num_changes, 0)
 
     def test_change(self):
-        data_json = os.path.join(TEST_DIR, 'data.json')
-        if not os.path.isfile(data_json):
-            local_data = {'nothing': None}
-        else:
-            with open(data_json, encoding='utf8') as fobj:
-                local_data = json.load(fobj)
-        local_data['random'] = str(uuid.uuid4()) # type: ignore
-        with open(data_json, 'w', encoding='utf8') as fobj:
-            json.dump(local_data, fobj)
+        local_data = _change_local_data()
 
         ftp = uptpy.get_ftp(*self._test_creds)[0]
         uptpy.mkdirs(ftp, self._rp, '')
 
-        def _get_remote_data():
-            try:
-                content = uptpy.read_remote(ftp, posixpath.join(self._rp, 'data.json'))
-                return json.loads(content)
-            except Exception:
-                return {}
-
-        remote_data1 = _get_remote_data()
+        remote_data1 = self._get_remote_data(ftp)
 
         result = uptpy.update(*self._test_connection)
         self.assertTrue(result > 0)
 
-        remote_data2 = _get_remote_data()
+        remote_data2 = self._get_remote_data(ftp)
+        ftp.close()
+
+        self.assertNotEqual(remote_data1.get('random'), remote_data2['random'])
+        self.assertEqual(local_data['random'], remote_data2['random'])
+
+    def test_cli_change(self):
+        local_data = _change_local_data()
+
+        ftp = uptpy.get_ftp(*self._test_creds)[0]
+        uptpy.mkdirs(ftp, self._rp, '')
+
+        remote_data1 = self._get_remote_data(ftp)
+
+        subprocess.call(
+            [sys.executable, 'uptpy.py'] + list(self._test_connection),
+            cwd=os.path.dirname(THIS_DIR),
+        )
+
+        remote_data2 = self._get_remote_data(ftp)
         ftp.close()
 
         self.assertNotEqual(remote_data1.get('random'), remote_data2['random'])
         self.assertEqual(local_data['random'], remote_data2['random'])
 
     def test_non_ascii_names(self):
-        # might be this was a problem when I initially wrote it with Python2?
-        # This all works out of the box now. Nice :)
+        # It's more complicated. I guess ftp-encoding `utf8` is alright when just
+        # pushing and pulling dedicated files. Listing via `nlst()` will break on
+        # e-acute `\u00e9` when using `utf8`, it works with `latin-1` tho!
+        # but if you put smiley in names ONLY `utf8` encoding works :|
         smiley = '_\ud83e\udd17'.encode('utf-16', 'surrogatepass').decode('utf-16')
         file_name = '_Str\u00ebu\u00dfel%sbr\u00f6tchen.txt' % smiley
         rel_path = posixpath.join(smiley, file_name)
@@ -176,6 +186,7 @@ class Test(unittest.TestCase):
 
         remote_content = uptpy.read_remote(ftp, posixpath.join(self._rp, rel_path))
         self.assertEqual(remote_content, content)
+        ftp.close()
 
     def test_ignored_remotely(self):
         rel_path1 = 'DO_BE_IGNORED.nop'
@@ -207,6 +218,7 @@ class Test(unittest.TestCase):
         for rel_path, content in ((rel_path1, content1), (rel_path2, content2)):
             remote_content = uptpy.read_remote(ftp, posixpath.join(self._rp, rel_path))
             self.assertEqual(remote_content, content)
+        ftp.close()
 
     def _ensure_deleted(self, ftp, remote_root, name):
         remote_path = posixpath.join(remote_root, name)
@@ -216,6 +228,13 @@ class Test(unittest.TestCase):
             ftp.delete(remote_path)
             things = ftp.nlst(remote_root)
             self.assertFalse(remote_path in things)
+
+    def _get_remote_data(self, ftp):
+        try:
+            content = uptpy.read_remote(ftp, posixpath.join(self._rp, DATA_JSON))
+            return json.loads(content)
+        except Exception:
+            return {}
 
 
 def _make_file(file_path, content=None):
@@ -230,6 +249,19 @@ def _make_file(file_path, content=None):
     with open(file_path, 'w', encoding='utf8') as fobj:
         fobj.write(content)
     return content
+
+
+def _change_local_data():
+    data_json = os.path.join(TEST_DIR, DATA_JSON)
+    if not os.path.isfile(data_json):
+        local_data = {'nothing': None}
+    else:
+        with open(data_json, encoding='utf8') as fobj:
+            local_data = json.load(fobj)
+    local_data['random'] = str(uuid.uuid4())  # type: ignore
+    with open(data_json, 'w', encoding='utf8') as fobj:
+        json.dump(local_data, fobj)
+    return local_data
 
 
 if __name__ == '__main__':
