@@ -194,13 +194,24 @@ def scan_remote(ftp, remote_path, ignores=None):
 def _scan_remote(ftp, root, path, data, ignores):
     # type: (ftplib.FTP, str, str, dict[str, dict[str, str]], list[str] | None) -> None
     files = {}
-    for name, item in ftp.mlsd(posixpath.join(root, path)):
-        if IGNORE_DOT_NAMES and name.startswith('.') or _is_ignored(name, ignores):
-            continue
-        if item['type'] == 'file':
-            files[name] = {'size': int(item['size'])}
-        elif item['type'] == 'dir':
-            _scan_remote(ftp, root, posixpath.join(path, name), data, ignores)
+    try:
+        for name, item in ftp.mlsd(posixpath.join(root, path)):
+            if IGNORE_DOT_NAMES and name.startswith('.') or _is_ignored(name, ignores):
+                continue
+            if item['type'] == 'file':
+                files[name] = {'size': int(item['size'])}
+            elif item['type'] == 'dir':
+                _scan_remote(ftp, root, posixpath.join(path, name), data, ignores)
+    except UnicodeDecodeError as error:
+        if error.reason == ERROR_UNICODE_REASON and ftp.encoding.lower() in (
+            'utf8',
+            'utf-8',
+        ):
+            raise Exception(
+                'Try with a different encoding like `latin-1` or `cp437`!'
+            ) from error
+        raise error
+
     # Collect remote dirs no matter if files or not
     # to be able to delete empty folders.
     data[path] = files
